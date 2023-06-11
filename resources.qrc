@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/plugins/katalog_fitur" >
+        <file>icon.png</file>
+    </qresource>
+</RCC>
