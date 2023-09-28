@@ -218,25 +218,52 @@ class search_data(QtWidgets.QDialog, FORM_CLASS):
             print ("dia koleksi") 
         propItem = []
         idItem = []
+        sumberData = []
         for collect in self.katalog.get_all_items():
             prop = collect.properties
             id = collect.id
             self.atribut= prop['keyword']
             propItem.append(self.atribut)
             idItem.append(id)
-        dict_fitur = dict(zip(idItem, propItem))
+            namasumberData = collect.collection_id
+            sumberData.append(namasumberData)    
+
         pilihanAtribut = []
         keyAtribut = []
-        for key, value in dict_fitur.items():
-            for a in value:
+        sumberDataAtribut = []
+  
+        self.dict_fitur2 ={}
+        for i, (val1, val2) in enumerate(zip(propItem, sumberData)):
+            for a in val1:
                 if a.lower() in [x.lower() for x in atributSesuai]:
                     pilihanAtribut.append(a)
                     keyAtribut.append(key)
+                    sumberDataAtribut.append(val2)
+                    self.dict_fitur2[idItem[i]] = {'properti': val1, 'sumber data': val2}
                 elif any(a.lower() in x.lower() for x in atributSesuai):
                     pilihanAtribut.append(a)
                     keyAtribut.append(key)
+                    sumberDataAtribut.append(val2)
+                    self.dict_fitur2[idItem[i]] = {'properti': val1, 'sumber data': val2}
+
+    
         self.dictSemantic = dict(zip(keyAtribut, pilihanAtribut))
-        displayAtribut = [*set(pilihanAtribut)]
+        temp = []
+        res = dict()
+        for key, val in self.dict_fitur2.items():
+            if val not in temp:
+                temp.append(val)
+                res[key] = val
+
+        displayAtribut = []
+        displaySumberData = []
+        for key, value in res.items():
+            atribut = value['properti'][0]
+            sumber = value['sumber data']
+            displayAtribut.append(atribut)
+            displaySumberData.append(sumber)
+
+        
         jumlah_atribut = len(displayAtribut)
         self.tableSearch.setColumnCount(3)
         self.tableSearch.setHorizontalHeaderLabels(['Atribut yang ditemukan', 'Koleksi', 'Tambahkan layer'])
@@ -244,7 +271,9 @@ class search_data(QtWidgets.QDialog, FORM_CLASS):
         self.tableSearch.setRowCount(jumlah_atribut)
         for index in range(jumlah_atribut):
             item1 = QtWidgets.QTableWidgetItem(displayAtribut[index])
+            item2 = QtWidgets.QTableWidgetItem(displaySumberData[index])
             self.tableSearch.setItem(index,0,item1)
+            self.tableSearch.setItem(index,1,item2)
             opsi = QtWidgets.QCheckBox()
             opsi.setStyleSheet("margin-left:50%")
             self.tableSearch.setCellWidget(index,2,opsi)
@@ -260,27 +289,38 @@ class search_data(QtWidgets.QDialog, FORM_CLASS):
     
     def getProp(self):
         wtaList = []
+        wtaProp = []
+        wtaSumber = []
         rowCount = self.tableSearch.rowCount()
         for index in range(rowCount):
             checkBoxItem = self.tableSearch.cellWidget(index, 2)
             if isinstance(checkBoxItem, QtWidgets.QCheckBox) and checkBoxItem.isChecked():
                 fieldItem = self.tableSearch.item(index, 0)
+                sumberItem = self.tableSearch.item(index, 1)
                 if fieldItem is not None:
                     fieldName = fieldItem.text()
                     wtaList.append(fieldName)
-        return (wtaList)
+                    wtaProp.append(fieldName)
+                if sumberItem is not None:
+                    sumberData = sumberItem.text()
+                    wtaSumber.append(sumberData)
+
+        wtaDict = dict(zip(wtaProp,wtaSumber))
+
+        return (wtaList, wtaDict)
     
     def addData(self):
         dialogKategori = my_dialog()
         prog_dialog = dialogKategori.progdialog()
         dialogKategori = my_dialog()
-        wtaList = self.getProp()
-        
-        itemAdd = []
-        for key, value in self.dictSemantic.items():
-            for a in wtaList:
-                if value == a:
-                    itemAdd.append(key)
+        wtaList, wtaDict = self.getProp()
+    
+        itemAdd2 = []
+       
+        for key, value in self.dict_fitur2.items():
+            for a, b in wtaDict.items():
+                if value['properti'][0] == a and value['sumber data'] == b:
+                    itemAdd2.append(key)
         
         project = iface.activeLayer()
         collections = {}
@@ -289,7 +329,7 @@ class search_data(QtWidgets.QDialog, FORM_CLASS):
             id = item.id
             asset = item.assets["vectorfile"]
             href = asset.href
-            if id in itemAdd:
+            if id in itemAdd2:
                 if collection_id not in collections:
                     collections[collection_id] = []
                 collections[collection_id].append(item)
@@ -318,55 +358,3 @@ class search_data(QtWidgets.QDialog, FORM_CLASS):
                 "Hasil pencarian berhasil ditambahkan!",
                 )
             
-
-        """for item in self.katalog.get_all_items():
-            id = item.id
-            asset = item.assets["vectorfile"]
-            href = asset.href            
-            if id in itemAdd:
-                layer = QgsVectorLayer(href, id, "ogr")
-                QgsProject.instance().addMapLayer(layer)"""
-
-
-        """ listsemuaLayer = []
-        for a in itemAdd:
-            namaLayer = a.split('_')[0]
-            listsemuaLayer.append(namaLayer)
-        
-        listLayer = [*set(listsemuaLayer)]
-        for b in listLayer:
-            print (b)
-        
-        layerHasil = {}
-        for item in listLayer:
-            layerHasil[item] = []
-        
-        for item in self.katalog.get_all_items():
-            id = item.id
-            if id in itemAdd:
-                for key in layerHasil.keys():
-                    if key in id:
-                        layerHasil[key].append(item)
-    
-        project = iface.activeLayer()
-        for key, value in layerHasil.items():
-            fiturLayer = []
-            for item in value:
-                id = item.id
-                asset = item.assets["vectorfile"]
-                href = asset.href
-                layer = QgsVectorLayer(href, id, "ogr")
-                fiturLayer.append(layer)
-        print (fiturLayer)
-        output_layer = "merged_layer"
-
-        processing.run("qgis:mergevectorlayers", {'LAYERS': fiturLayer, 'CRS': QgsCoordinateReferenceSystem('EPSG:4326'), 'OUTPUT': output_layer})
-        merged_layer = QgsVectorLayer(output_layer, "merged_layer", "ogr")
-
-        QgsProject.instance().addMapLayer(merged_layer)"""
-
-
-
-
-        
-
